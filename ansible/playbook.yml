@@ -1,0 +1,47 @@
+---
+- name: Configure and deploy app
+  hosts: web
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Python pip (for community.docker module)
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install docker.io
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Ensure docker service is started
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Install pip docker package
+      pip:
+        name:
+          - docker
+          - docker-compose
+        executable: pip3
+
+    - name: Pull app image from Docker Hub
+      become: false
+      shell: |
+        docker pull {{ lookup('env','DOCKERHUB_USERNAME') }}/devops-demo:latest || true
+
+    - name: Stop existing container if running
+      become: false
+      shell: |
+        docker stop devops-demo || true && docker rm devops-demo || true
+
+    - name: Run container
+      become: false
+      shell: |
+        docker run -d --name devops-demo -p 80:5000 -e APP_VERSION=ansible {{ lookup('env','DOCKERHUB_USERNAME') }}/devops-demo:latest
